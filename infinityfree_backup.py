@@ -114,137 +114,110 @@ def apply_cookies(driver: WebDriver, cookies: List[Dict[str, Any]]):
 			cookie["httpOnly"] = bool(ck.get("httpOnly"))
 		if "secure" in ck:
 			cookie["secure"] = bool(ck.get("secure"))
-		# expiry normalization: try several common keys
-		expiry = None
-		for key in ("expiry", "expirationDate", "expires"):
-			if key in ck:
-				v = ck.get(key)
-				if v is None:
-					continue
-				try:
-					expiry = int(float(v))
-					break
-				except Exception:
-					expiry = None
-		if expiry is not None:
-			cookie["expiry"] = expiry
-		try:
-			driver.add_cookie(cookie)
-		except Exception:
-			continue
+					ftp_cfg = cfg.get('ftp')
+					if not ftp_cfg:
+						print_status('No FTP configuration found; skipping FTP actions.', level='debug')
+					else:
+						try:
+							ftp = ftplib.FTP()
+							# validate and coerce FTP host and port to proper types
+							host_raw = ftp_cfg.get('host')
+							if not host_raw:
+								raise ValueError("FTP host is missing in FTP configuration")
+							try:
+								port = int(ftp_cfg.get('port', 21))
+							except Exception:
+								port = 21
+							ftp.connect(str(host_raw), port, timeout=30)
+							# Coerce user/password to strings to avoid passing None to ftplib.login
+							user_val = ftp_cfg.get('user') or ''
+							pwd_val = ftp_cfg.get('password') or ''
+							ftp.login(str(user_val), str(pwd_val))
 
+							# Download remote /htdocs into local ftps folder, zip it, and remove folder
+							remote_base = ftp_cfg.get('remote_path') or '/htdocs'
+							try:
+								# prepare local paths
+								ftps_base = base_dir / 'ftps'
+								ftps_base.mkdir(parents=True, exist_ok=True)
+								htdocs_local = ftps_base / f"htdocs_{ts}"
+								htdocs_local.mkdir(parents=True, exist_ok=True)
 
-def wait_for_xpath(driver, xpath, timeout=15):
-	return WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.XPATH, xpath)))
+								def download_ftp_dir(ftp_obj, remote_dir, local_dir):
+									# Recursively download a remote FTP directory into local_dir
+									try:
+										ftp_obj.cwd(remote_dir)
+									except Exception:
+										return
+									items = []
+									try:
+										items = ftp_obj.nlst()
+									except Exception:
+										return
+									for name in items:
+										if name in ('.', '..'):
+											continue
+										# attempt to cwd into the name to see if it's a directory
+										try:
+											ftp_obj.cwd(name)
+											# it is a directory
+											local_sub = local_dir / name
+											local_sub.mkdir(parents=True, exist_ok=True)
+											# recurse into directory
+											download_ftp_dir(ftp_obj, '.', local_sub)
+											# go back up
+											ftp_obj.cwd('..')
+										except Exception:
+											# treat as a file, retrieve it
+											local_file = local_dir / name
+											try:
+												with open(local_file, 'wb') as lf:
+													ftp_obj.retrbinary(f'RETR {name}', lf.write)
+											except Exception:
+												# skip unreadable files
+												continue
 
+								# start from the configured remote path
+								cwd_ok = True
+								try:
+									ftp.cwd(remote_base)
+								except Exception:
+									try:
+										# try removing leading slash
+										ftp.cwd(remote_base.lstrip('/'))
+									except Exception:
+										cwd_ok = False
+								if cwd_ok:
+									download_ftp_dir(ftp, '.', htdocs_local)
+								# create a zip of the downloaded htdocs folder
+								htdocs_zip = ftps_base / f"htdocs_{ts}.zip"
+								try:
+									with zipfile.ZipFile(htdocs_zip, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+										for root, _, files in os.walk(htdocs_local):
+											for fname in files:
+												fpath = Path(root) / fname
+												arcname = str(fpath.relative_to(ftps_base))
+												zf.write(fpath, arcname=arcname)
+									print_status(f"Created FTP htdocs zip {htdocs_zip}", level="ok")
+									# remove the local extracted folder
+									try:
+										shutil.rmtree(htdocs_local)
+										print_status(f"Removed temporary folder {htdocs_local}", level="debug")
+									except Exception:
+										pass
+								except Exception as e:
+									print_status(f"Failed to zip FTP htdocs: {e}", level="warn")
+							except Exception as e:
+								print_status(f"Failed to download remote htdocs: {e}", level="warn")
 
-def list_accounts(driver) -> List[Dict[str, str]]:
-	xpath = '/html/body/div/div[2]/div[2]/div/div[2]/div/div[3]/div[1]/div[1]/div/div[2]/table/tbody/tr/td/div/div/div[1]/a'
-	try:
-		elems = driver.find_elements(By.XPATH, xpath)
-	except Exception:
-		elems = []
-	accounts = []
-	for e in elems:
-		# prefer using execute_script to avoid Selenium package resource lookups
-		try:
-			text = driver.execute_script("return (arguments[0].textContent||arguments[0].innerText||'').trim();", e) or ""
-		except Exception:
-			try:
-				text = e.text.strip()
-			except Exception:
-				text = ""
-		try:
-			href = driver.execute_script("return arguments[0].href || arguments[0].getAttribute('href');", e)
-		except Exception:
-			try:
-				href = e.get_attribute("href")
-			except Exception:
-				href = None
-		accounts.append({"text": text, "href": href})
-	return accounts
-
-
-def list_databases(driver) -> List[str]:
-	xpath = '/html/body/div[1]/div[2]/div[2]/div/div[2]/div/div[3]/div[1]/div[2]/div/div[2]/div/div[2]/table/tbody'
-	try:
-		tbody = driver.find_element(By.XPATH, xpath)
-		rows = tbody.find_elements(By.TAG_NAME, "tr")
-	except Exception:
-		rows = []
-	dbs = []
-	for r in rows:
-		dbs.append(r.text.strip())
-	return dbs
-
-
-def get_database_names(driver) -> List[str]:
-	# Preferred: find td elements with data-label="Database"
-	try:
-		elems = driver.find_elements(By.XPATH, "//td[@data-label='Database']")
-	except Exception:
-		elems = []
-	names = []
-	for e in elems:
-		txt = e.text.strip()
-		if txt:
-			names.append(txt)
-	return names
-
-
-def export_database(driver, sel_name: str):
-	print_status(f"Preparing export for database: {sel_name}")
-	try:
-		cur = driver.current_url
-		target = cur.rstrip('/') + '/' + sel_name
-		print_status(f"Navigating to database page: {target}")
-		driver.get(target)
-		time.sleep(2)
-		print_status("Looking for Export tab link...")
-		export_link = None
-		try:
-			export_link = driver.find_element(By.CSS_SELECTOR, f"a[href*='db_export.php?db={sel_name}']")
-		except Exception:
-			try:
-				elems = driver.find_elements(By.CSS_SELECTOR, "a[href*='db_export.php?db=']")
-				for e in elems:
-					href = e.get_attribute('href') or ''
-					if sel_name in href:
-						export_link = e
-						break
-				if not export_link and elems:
-					export_link = elems[0]
-			except Exception:
-				export_link = None
-
-		if export_link:
-			print_status("Opening Export tab")
-			try:
-				export_link.click()
-				time.sleep(2)
-			except Exception:
-				try:
-					href = export_link.get_attribute('href')
-					if href:
-						driver.get(href)
-						time.sleep(2)
-				except Exception:
-					pass
-
-			print_status("Waiting for Export page and export button")
-			go_btn = None
-			try:
-				go_btn = driver.find_element(By.XPATH, "//input[@type='submit' and (translate(@value,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')='go' or contains(translate(@value,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'export'))]")
-			except Exception:
-				try:
-					go_btn = driver.find_element(By.XPATH, "//button[normalize-space(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'))='go']")
-				except Exception:
-					go_btn = None
-
-			if go_btn:
-				print_status("Starting export and waiting for download")
-				# decide download directory based on config (may have been set by folder picker)
-				cfg = load_json(CONFIG_FILE) or {}
+							# close FTP connection (no uploads performed)
+							try:
+								ftp.quit()
+							except Exception:
+								pass
+							print_status("FTP session completed (no uploads performed)", level="debug")
+						except Exception as e:
+							print_status(f"FTP actions failed: {e}", level="warn")
 				dl_dir = ROOT / "downloads"
 				val = cfg.get('download_dir')
 				if val is not None:

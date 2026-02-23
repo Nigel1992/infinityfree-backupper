@@ -26,7 +26,7 @@ python infinityfree_backup.py
 - **Cookie handling:** Accepts pasted cookie JSON or a cookie file and saves normalized cookies locally so future runs can reuse them.
 - **Account & DB selection:** Lists available accounts and MySQL databases (using configured XPaths) and lets you pick one. Selections are persisted to `config.json` for convenience.
 - **Export & zip (always):** Exports the selected database to a SQL file named `<databasename>_<YYYYMMDD-HHMMSS>.sql`, compresses it to a `.zip` placed in `backups/sqls/`, and removes the original `.sql`.
-- **FTP mirror & upload (automatic when configured):** If `ftp` credentials are present in `config.json` the tool will automatically download your remote `/htdocs/` into `backups/ftps/htdocs_<timestamp>/`, create a zip `backups/ftps/htdocs_<timestamp>.zip`, remove the extracted folder, and upload the SQL zip to the remote `/htdocs/`.
+- **FTP mirror (local only, never uploads):** If `ftp` credentials are present in `config.json` the tool will download your remote `/htdocs/` into `backups/ftps/htdocs_<timestamp>/`, create a zip `backups/ftps/htdocs_<timestamp>.zip`, and remove the extracted folder. The tool does not upload any files to the remote server.
 
 **Files & Locations**
 - **Script:** `infinityfree_backup.py`
