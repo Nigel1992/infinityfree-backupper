@@ -9,75 +9,71 @@ A friendly backupper tool for InfinityFree hosting (Free plan). It automates ope
 - **Prerequisites:** `python3`, Chrome installed, and `chromedriver` (the script will prefer `webdriver-manager` to fetch it automatically).
 - Create and activate a virtual environment and install dependencies:
 
+````markdown
+
+**InfinityFree Backupper**
+
+Small utility to export MySQL databases from the InfinityFree control panel and mirror the remote `/htdocs/` folder over FTP. The tool is local-first: it saves timestamped, compressed backups under `backups/` for your convenience.
+
+**Quick Start**
+- **Prerequisites:** `python3` and Chrome installed. The script prefers `webdriver-manager` to fetch a matching `chromedriver`, but a system `chromedriver` also works.
+- Create and activate a virtual environment and install dependencies:
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-- Run the backupper (interactive):
+- Run the backupper:
 
 ```bash
 python infinityfree_backup.py
 ```
 
-**What it does**
-- **Interactive sign-in:** Opens Chrome and navigates to https://dash.infinityfree.com. If sign-in is required you can sign in manually; the script will detect completion and save cookies for reuse.
-- **Cookie handling:** Accepts pasted cookie JSON or a cookie file and saves normalized cookies locally so future runs can reuse them.
-- **Account & DB selection:** Lists available accounts and MySQL databases (using configured XPaths) and lets you pick one. Selections are persisted to `config.json` for convenience.
-- **Export & archive:** Exports the selected database to a SQL file named `<databasename>_<YYYYMMDD-HHMMSS>.sql`, then creates a compressed archive for safekeeping.
+**Important usage notes**
+- This tool does NOT perform interactive sign-in. Authentication is cookie-based only: provide a `cookies.json` file or paste cookie JSON into the console. The script will normalize and persist cookies for future runs.
+- The tool always exports the selected MySQL database to a timestamped SQL file and creates a compressed ZIP of the export.
+- The tool always mirrors the remote `/htdocs/` directory via FTP when valid FTP credentials are present in your `config.json` (the mirrored site is compressed to a ZIP and the extracted folder is removed after archiving).
+- There is no upload functionality in this project.
 
+**What it does**
+- Reads cookie data from `cookies.json` (or pasted JSON) to authenticate.
+- Lists accounts and MySQL databases (using configured XPaths) so you can select which database to export. Selections are saved to `config.json`.
+- Exports the selected database into `backups/sqls/` as `<databasename>_<YYYYMMDD-HHMMSS>.sql`, then creates a `.zip` archive and removes the raw `.sql` file.
+- If FTP credentials are present in `config.json`, downloads the remote `/htdocs/` into `backups/ftps/htdocs_<timestamp>/`, compresses it to `backups/ftps/htdocs_<timestamp>.zip`, and removes the extracted folder.
 
 **Files & Locations**
-- **Script:** `infinityfree_backup.py`
-- **Examples:** see [config.example.json](config.example.json) and [cookies.example.json](cookies.example.json) for suggested formats you can copy into `config.json` and `cookies.json` locally (these example files are safe to keep in the repo).
-- **Generated backups:** SQL dumps are stored under `backups/sqls/` and archives under `backups/archives/` by default.
-- **Generated backups:** SQL dumps are stored under `backups/sqls/`. Each exported `.sql` is also compressed into a `.zip` file placed next to the SQL in the same folder (no separate `archives/` folder is used).
-- **Remote site mirror (optional):** when enabled the tool can download your remote `/htdocs/` via FTP into a timestamped `backups/ftps/htdocs_<timestamp>/` folder and then compress it into `backups/ftps/htdocs_<timestamp>.zip` (the extracted folder is removed afterwards).
+- `infinityfree_backup.py` — main script.
+- `config.example.json` and `cookies.example.json` — safe examples you can copy to `config.json` and `cookies.json` locally.
+- Backups:
+  - `backups/sqls/` — contains zipped SQL exports (each export is a `.zip` file; original `.sql` files are removed after archiving).
+  - `backups/ftps/` — contains zipped mirrors of remote `/htdocs/` named `htdocs_<timestamp>.zip`.
 
 **Config & Cookies (examples)**
-- The repository includes example files you should copy and edit locally:
+- Copy and edit the included examples locally:
 
-	- [config.example.json](config.example.json) — contains saved selections and optional FTP settings. Copy to `config.json` and edit values you want to persist. Example snippet:
+  - [config.example.json](config.example.json) — configure saved selections and FTP credentials. Copy to `config.json` locally and edit values before running.
 
-```json
-{
-	"account_xpath": "//div[@class='account-row']",
-	"account_index": 0,
-	"database_xpath": "//table[@id='mysql-databases']//tr",
-	"database_index": 0,
-	"download_dir": "./backups/sqls",
-	"enable_ftp": false,
-	"ftp": {
-		"host": "ftp.epizy.com",
-		"user": "your_ftp_user",
-		"pass": "YOUR_FTP_PASSWORD",
-		"remote_path": "/htdocs/"
-	}
-}
-```
+  - [cookies.example.json](cookies.example.json) — shows the JSON array format used for cookie imports. Do **not** commit your real `cookies.json` to the repo; the repository `.gitignore` prevents it from being tracked.
 
-	- [cookies.example.json](cookies.example.json) — shows the JSON array format used for cookie imports. Do **not** commit your real `cookies.json` to the repo; the repository `.gitignore` prevents it from being tracked.
-
-How to load cookies:
-- On first run, the script will look for `cookies.json` locally. If not present it offers to:
-	- Paste cookie JSON in the console, or
-	- Provide a path to a cookie file, or
-	- Let you sign in interactively and then save cookies.
+How to provide cookies:
+- Place a `cookies.json` file in the repository root (ignored by git), or paste the cookie JSON when the script prompts; the script will save normalized cookies for subsequent runs.
 
 **Security & privacy**
-- Never commit `config.json` or `cookies.json` containing real secrets. They are excluded from the repository by `.gitignore` and a history purge was performed to remove earlier accidental commits.
-- If you think credentials were exposed before the purge, rotate passwords immediately.
+- Never commit `config.json` or `cookies.json` containing real secrets. They are excluded from the repository by `.gitignore`. If secrets were exposed previously, rotate them immediately.
 
 **Troubleshooting**
-- If the script cannot find accounts or DBs, InfinityFree likely changed the dashboard layout — update the XPaths in `infinityfree_backup.py`.
-- If Chrome/Chromedriver mismatch occurs, install a matching chromedriver manually or let `webdriver-manager` fetch one.
+- If account or DB selectors stop working, update the XPaths in `infinityfree_backup.py` to match the dashboard's current markup.
+- For Chrome/Chromedriver mismatches, install a compatible `chromedriver` or let `webdriver-manager` fetch one.
 
 **Development & Contribution**
-- Pull requests welcome for improved selectors, better headless support, encrypted secrets, or scheduling integration (cron/systemd).
+- PRs welcome for improved selectors, encrypted credential support, or scheduling integrations.
 
 **License**
 - This project is provided as-is. See repository LICENSE (if present) for details.
 
----
+````
+- Pull requests welcome for improved selectors, better headless support, encrypted secrets, or scheduling integration (cron/systemd).
+
 
