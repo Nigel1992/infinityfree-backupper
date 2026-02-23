@@ -1,16 +1,3 @@
-
-**InfinityFree Backupper**
-
-A friendly backupper tool for InfinityFree hosting (Free plan). It automates opening the InfinityFree dashboard in Chrome, helps you sign in, persist cookies, choose an account and MySQL database, export and **backup your SQL data**, and optionally mirror your `/htdocs/` folder over FTP — everything is timestamped and zipped for safekeeping.
-
-**Why this exists:** InfinityFree's control panel doesn't provide easy automated scheduled dumps for free accounts. This tool makes repeatable backups simple and local-first — you control where the backups are stored.
-
-**Quick Start**
-- **Prerequisites:** `python3`, Chrome installed, and `chromedriver` (the script will prefer `webdriver-manager` to fetch it automatically).
-- Create and activate a virtual environment and install dependencies:
-
-````markdown
-
 **InfinityFree Backupper**
 
 Small utility to export MySQL databases from the InfinityFree control panel and mirror the remote `/htdocs/` folder over FTP. The tool is local-first: it saves timestamped, compressed backups under `backups/` for your convenience.
@@ -73,7 +60,6 @@ How to provide cookies:
 **License**
 - This project is provided as-is. See repository LICENSE (if present) for details.
 
-````
 - Pull requests welcome for improved selectors, better headless support, encrypted secrets, or scheduling integration (cron/systemd).
 
 
