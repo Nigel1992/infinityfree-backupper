@@ -12,6 +12,34 @@
 - 🕒 Automatic **timestamped backups**
 - 🗃️ Clean archive structure (raw files removed after compression)
 - 💾 Fully local storage (`backups/` directory)
+- 🖥️ Cross-platform (Windows, macOS, Linux)
+
+---
+
+## ⚠️ Important Setup Step
+
+The repository includes:
+
+- `config.example.json`
+- `cookies.example.json`
+
+👉 **Before running the tool, rename these files on your system:**
+
+- Rename `config.example.json` → `config.json`
+- Rename `cookies.example.json` → `cookies.json`
+
+You can do this using your file explorer (right-click → Rename).
+
+After renaming:
+
+- Edit `config.json` and add your FTP credentials (if needed)
+- Replace the contents of `cookies.json` with your real InfinityFree cookie JSON
+
+❗ The script will NOT use the `.example.json` files.  
+They must be renamed exactly to:
+
+- `config.json`
+- `cookies.json`
 
 ---
 
@@ -19,7 +47,7 @@
 
 ### 🗄️ MySQL Backups
 
-- Reads authentication cookies from `cookies.json` (or pasted JSON)
+- Reads authentication cookies from `cookies.json`
 - Lists available accounts and databases
 - Saves your selection to `config.json`
 - Exports selected database as:
@@ -79,7 +107,7 @@ backups/ftps/htdocs_<timestamp>.zip
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate
+# Activate the virtual environment (platform-specific)
 pip install -r requirements.txt
 ````
 
@@ -93,24 +121,19 @@ python infinityfree_backup.py
 
 ---
 
-## 🔐 Authentication (Important)
+## 🔐 Authentication
 
 This tool **does NOT perform interactive sign-in**.
 
-You must authenticate using cookies:
+Authentication is cookie-based only.
 
-### Option 1 — File (Recommended)
+You must:
 
-Place a `cookies.json` file in the repository root.
+* Provide a properly formatted `cookies.json` file
+  **or**
+* Paste your cookie JSON into the console when prompted
 
-### Option 2 — Paste JSON
-
-Paste cookie JSON directly into the console when prompted.
-
-The script will:
-
-* Normalize cookies
-* Save them for future runs
+The script will normalize and save cookies for future runs.
 
 > ⚠️ Never commit real cookies to the repository.
 
@@ -128,14 +151,6 @@ The script will:
 │   └── ftps/
 ```
 
-### 📄 Important Files
-
-| File                     | Description                            |
-| ------------------------ | -------------------------------------- |
-| `infinityfree_backup.py` | Main script                            |
-| `config.example.json`    | Example config (copy to `config.json`) |
-| `cookies.example.json`   | Example cookie format                  |
-
 ---
 
 ## 🛡 Security & Privacy
@@ -143,7 +158,6 @@ The script will:
 * `config.json` and `cookies.json` are excluded via `.gitignore`
 * Never commit real credentials
 * Rotate secrets immediately if exposed
-* Consider adding encrypted credential storage (PRs welcome!)
 
 ---
 
@@ -168,7 +182,7 @@ Pull requests welcome for:
 * Improved XPaths/selectors
 * Better headless support
 * Encrypted secret storage
-* Scheduling integration (cron/systemd)
+* Scheduling integration (Task Scheduler / cron / systemd)
 * Logging improvements
 * Multi-account support
 
