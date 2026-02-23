@@ -405,29 +405,26 @@ def export_database(driver, sel_name: str):
 					except Exception as e:
 						print_status(f"Failed to create zip: {e}", level="warn")
 
-					# Upload zip to FTP /htdocs/ if FTP config available or request it
+					# Upload zip to FTP /htdocs/ if FTP config available (FTP now runs when credentials are present)
 					cfg = load_json(CONFIG_FILE) or {}
-					# Respect explicit opt-in: only upload if 'enable_ftp' is true in config
-					if not cfg.get('enable_ftp', False):
-						print_status('FTP upload disabled by configuration; skipping upload.', level='debug')
-						ftp_cfg = None
-					else:
-						ftp_cfg = cfg.get('ftp')
-						if not ftp_cfg:
-							# prompt for FTP details (skip in headless)
-							if driver.capabilities.get('headless'):
-								print_status("Headless mode: skipping FTP upload because no FTP config provided.", level="warn")
-							else:
-								host = input('FTP host: ').strip()
-								port_raw = input('FTP port (press Enter for 21): ').strip()
-								port = int(port_raw) if port_raw.isdigit() else 21
-								user = input('FTP username: ').strip()
-								pwd = getpass.getpass('FTP password: ')
-								ftp_cfg = {'host': host, 'port': port, 'user': user, 'password': pwd}
-								cfg['ftp'] = ftp_cfg
-								save_json(CONFIG_FILE, cfg)
-					# attempt upload (only if ftp_cfg set, enable_ftp true, and zip exists)
-					if cfg.get('enable_ftp', False) and ftp_cfg and zip_path and zip_path.exists():
+					ftp_cfg = cfg.get('ftp')
+					if not ftp_cfg:
+						# prompt for FTP details (skip in headless)
+						if driver.capabilities.get('headless'):
+							print_status("Headless mode: no FTP config provided; skipping FTP actions.", level="warn")
+							ftp_cfg = None
+						else:
+							host = input('FTP host: ').strip()
+							port_raw = input('FTP port (press Enter for 21): ').strip()
+							port = int(port_raw) if port_raw.isdigit() else 21
+							user = input('FTP username: ').strip()
+							pwd = getpass.getpass('FTP password: ')
+							ftp_cfg = {'host': host, 'port': port, 'user': user, 'password': pwd}
+							cfg['ftp'] = ftp_cfg
+							save_json(CONFIG_FILE, cfg)
+
+					# attempt upload (if ftp_cfg present and zip exists)
+					if ftp_cfg and zip_path and zip_path.exists():
 						try:
 							ftp = ftplib.FTP()
 							# validate and coerce FTP host and port to proper types
@@ -447,80 +444,82 @@ def export_database(driver, sel_name: str):
 							remote_base = ftp_cfg.get('remote_path') or '/htdocs'
 							# Always download remote /htdocs into local ftps folder when FTP is enabled
 							# (previously optional). This ensures a local mirror zip is created.
-                            
-								try:
-									# prepare local paths
-									ftps_base = base_dir / 'ftps'
-									ftps_base.mkdir(parents=True, exist_ok=True)
-									htdocs_local = ftps_base / f"htdocs_{ts}"
-									htdocs_local.mkdir(parents=True, exist_ok=True)
-
-									def download_ftp_dir(ftp_obj, remote_dir, local_dir):
-										# Recursively download a remote FTP directory into local_dir
-										try:
-											ftp_obj.cwd(remote_dir)
-										except Exception:
-											return
-										items = []
-										try:
-											items = ftp_obj.nlst()
-										except Exception:
-											return
-										for name in items:
-											if name in ('.', '..'):
-												continue
-											# attempt to cwd into the name to see if it's a directory
-											try:
-												ftp_obj.cwd(name)
-												# it is a directory
-												local_sub = local_dir / name
-												local_sub.mkdir(parents=True, exist_ok=True)
-												# recurse into directory
-												download_ftp_dir(ftp_obj, '.', local_sub)
-												# go back up
-												ftp_obj.cwd('..')
-											except Exception:
-												# treat as a file, retrieve it
-												local_file = local_dir / name
-												try:
-													with open(local_file, 'wb') as lf:
-														ftp_obj.retrbinary(f'RETR {name}', lf.write)
-												except Exception:
-													# skip unreadable files
-													continue
-
-									# start from the configured remote path
-									cwd_ok = True
+		
+							try:
+								# prepare local paths
+								ftps_base = base_dir / 'ftps'
+								ftps_base.mkdir(parents=True, exist_ok=True)
+								htdocs_local = ftps_base / f"htdocs_{ts}"
+								htdocs_local.mkdir(parents=True, exist_ok=True)
+		
+								def download_ftp_dir(ftp_obj, remote_dir, local_dir):
+									# Recursively download a remote FTP directory into local_dir
 									try:
-										ftp.cwd(remote_base)
+										ftp_obj.cwd(remote_dir)
 									except Exception:
-										try:
-											# try removing leading slash
-											ftp.cwd(remote_base.lstrip('/'))
-										except Exception:
-											cwd_ok = False
-									if cwd_ok:
-										download_ftp_dir(ftp, '.', htdocs_local)
-									# create a zip of the downloaded htdocs folder
-									htdocs_zip = ftps_base / f"htdocs_{ts}.zip"
+										return
+									items = []
 									try:
-										with zipfile.ZipFile(htdocs_zip, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
-											for root, _, files in os.walk(htdocs_local):
-												for fname in files:
-													fpath = Path(root) / fname
-													arcname = str(fpath.relative_to(ftps_base))
-													zf.write(fpath, arcname=arcname)
-										print_status(f"Created FTP htdocs zip {htdocs_zip}", level="ok")
-										# remove the local extracted folder
+										items = ftp_obj.nlst()
+									except Exception:
+										return
+									for name in items:
+										if name in ('.', '..'):
+											continue
+										# attempt to cwd into the name to see if it's a directory
 										try:
-											shutil.rmtree(htdocs_local)
-											print_status(f"Removed temporary folder {htdocs_local}", level="debug")
+											ftp_obj.cwd(name)
+											# it is a directory
+											local_sub = local_dir / name
+											local_sub.mkdir(parents=True, exist_ok=True)
+											# recurse into directory
+											download_ftp_dir(ftp_obj, '.', local_sub)
+											# go back up
+											ftp_obj.cwd('..')
 										except Exception:
-											pass
-									except Exception as e:
-										print_status(f"Failed to zip FTP htdocs: {e}", level="warn")
+											# treat as a file, retrieve it
+											local_file = local_dir / name
+											try:
+												with open(local_file, 'wb') as lf:
+													ftp_obj.retrbinary(f'RETR {name}', lf.write)
+											except Exception:
+												# skip unreadable files
+												continue
+		
+								# start from the configured remote path
+								cwd_ok = True
+								try:
+									ftp.cwd(remote_base)
+								except Exception:
+									try:
+										# try removing leading slash
+										ftp.cwd(remote_base.lstrip('/'))
+									except Exception:
+										cwd_ok = False
+								if cwd_ok:
+									download_ftp_dir(ftp, '.', htdocs_local)
+								# create a zip of the downloaded htdocs folder
+								htdocs_zip = ftps_base / f"htdocs_{ts}.zip"
+								try:
+									with zipfile.ZipFile(htdocs_zip, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+										for root, _, files in os.walk(htdocs_local):
+											for fname in files:
+												fpath = Path(root) / fname
+												arcname = str(fpath.relative_to(ftps_base))
+												zf.write(fpath, arcname=arcname)
+									print_status(f"Created FTP htdocs zip {htdocs_zip}", level="ok")
+									# remove the local extracted folder
+									try:
+										# ensure shutil is bound in this scope before use
+										import shutil as _shutil
+										_shutil.rmtree(htdocs_local)
+										print_status(f"Removed temporary folder {htdocs_local}", level="debug")
+									except Exception:
+										pass
 								except Exception as e:
-									print_status(f"Failed to download remote htdocs: {e}", level="warn")
+									print_status(f"Failed to zip FTP htdocs: {e}", level="warn")
+							except Exception as e:
+								print_status(f"Failed to download remote htdocs: {e}", level="warn")
 
 							# change to /htdocs/ creating if necessary for upload
 							try:
