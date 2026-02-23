@@ -1,6 +1,6 @@
 *.bak
-cookies.json
-config.json
+#cookies.json
+#config.json
 backups/
 downloads/
 .venv/
