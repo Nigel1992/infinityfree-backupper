@@ -1,0 +1,7 @@
+{
+  "account": { "text": "<YOUR_ACCOUNT>", "href": "https://dash.infinityfree.com/accounts/<YOUR_ACCOUNT>" },
+  "database": "<YOUR_DATABASE>",
+  "download_dir": "<PATH_TO_BACKUPS>",
+  "enable_ftp": false,
+  "ftp": { "host": "<YOUR_FTP_HOST>", "port": 21, "user": "<YOUR_FTP_USER>", "password": "<YOUR_FTP_PASS>" }
+}
