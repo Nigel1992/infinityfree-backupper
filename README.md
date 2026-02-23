@@ -25,15 +25,14 @@ python infinityfree_backup.py
 - **Interactive sign-in:** Opens Chrome and navigates to https://dash.infinityfree.com. If sign-in is required you can sign in manually; the script will detect completion and save cookies for reuse.
 - **Cookie handling:** Accepts pasted cookie JSON or a cookie file and saves normalized cookies locally so future runs can reuse them.
 - **Account & DB selection:** Lists available accounts and MySQL databases (using configured XPaths) and lets you pick one. Selections are persisted to `config.json` for convenience.
-- **Export & archive:** Exports the selected database to a SQL file named `<databasename>_<YYYYMMDD-HHMMSS>.sql`, then creates a compressed archive for safekeeping.
-- **Optional FTP upload:** Upload to your `htdocs/` on InfinityFree is implemented but disabled by default — enable in `config.json` only if you know what you are doing.
+- **Export & zip (always):** Exports the selected database to a SQL file named `<databasename>_<YYYYMMDD-HHMMSS>.sql`, compresses it to a `.zip` placed in `backups/sqls/`, and removes the original `.sql`.
+- **FTP mirror & upload (automatic when configured):** If `ftp` credentials are present in `config.json` the tool will automatically download your remote `/htdocs/` into `backups/ftps/htdocs_<timestamp>/`, create a zip `backups/ftps/htdocs_<timestamp>.zip`, remove the extracted folder, and upload the SQL zip to the remote `/htdocs/`.
 
 **Files & Locations**
 - **Script:** `infinityfree_backup.py`
 - **Examples:** see [config.example.json](config.example.json) and [cookies.example.json](cookies.example.json) for suggested formats you can copy into `config.json` and `cookies.json` locally (these example files are safe to keep in the repo).
-- **Generated backups:** SQL dumps are stored under `backups/sqls/` and archives under `backups/archives/` by default.
-- **Generated backups:** SQL dumps are stored under `backups/sqls/`. Each exported `.sql` is also compressed into a `.zip` file placed next to the SQL in the same folder (no separate `archives/` folder is used).
- - **Remote site mirror:** when FTP is enabled the tool will download your remote `/htdocs/` via FTP into a timestamped `backups/ftps/htdocs_<timestamp>/` folder, create a zip file `backups/ftps/htdocs_<timestamp>.zip`, and remove the extracted folder.
+- **Generated backups:** SQL dumps are stored under `backups/sqls/`. Each exported `.sql` is compressed into a `.zip` file placed in the same folder and the original `.sql` is removed.
+ - **Remote site mirror:** when `ftp` credentials are present the tool downloads your remote `/htdocs/` into `backups/ftps/htdocs_<timestamp>/`, zips it to `backups/ftps/htdocs_<timestamp>.zip`, and removes the extracted folder.
 
 **Config & Cookies (examples)**
 - The repository includes example files you should copy and edit locally:
@@ -46,12 +45,12 @@ python infinityfree_backup.py
 	"account_index": 0,
 	"database_xpath": "//table[@id='mysql-databases']//tr",
 	"database_index": 0,
-	"download_dir": "./backups/sqls",
-	"enable_ftp": false,
-	"ftp": {
+		"download_dir": "./backups/sqls",
+		"ftp": {
 		"host": "ftp.epizy.com",
+		"port": 21,
 		"user": "your_ftp_user",
-		"pass": "YOUR_FTP_PASSWORD",
+		"password": "YOUR_FTP_PASSWORD",
 		"remote_path": "/htdocs/"
 	}
 }
