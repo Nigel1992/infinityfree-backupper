@@ -374,9 +374,7 @@ def export_database(driver, sel_name: str):
 					else:
 						base_dir = ROOT / 'backups'
 					sql_dir = base_dir / 'sqls'
-					arch_dir = base_dir / 'archives'
 					sql_dir.mkdir(parents=True, exist_ok=True)
-					arch_dir.mkdir(parents=True, exist_ok=True)
 					new_path = sql_dir / new_name
 					try:
 						downloaded.rename(new_path)
@@ -398,6 +396,12 @@ def export_database(driver, sel_name: str):
 						with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
 							zf.write(new_path, arcname=new_path.name)
 						print_status(f"Created zip {zip_path}", level="ok")
+						# remove the original .sql now that it's zipped
+						try:
+							new_path.unlink()
+							print_status(f"Removed original SQL file {new_path}", level="debug")
+						except Exception:
+							pass
 					except Exception as e:
 						print_status(f"Failed to create zip: {e}", level="warn")
 
@@ -439,7 +443,86 @@ def export_database(driver, sel_name: str):
 							user_val = ftp_cfg.get('user') or ''
 							pwd_val = ftp_cfg.get('password') or ''
 							ftp.login(str(user_val), str(pwd_val))
-							# change to /htdocs/ creating if necessary
+							# Optionally download remote /htdocs into local ftps folder, zip it, and remove folder
+							remote_base = ftp_cfg.get('remote_path') or '/htdocs'
+							# Always download remote /htdocs into local ftps folder when FTP is enabled
+							# (previously optional). This ensures a local mirror zip is created.
+                            
+								try:
+									# prepare local paths
+									ftps_base = base_dir / 'ftps'
+									ftps_base.mkdir(parents=True, exist_ok=True)
+									htdocs_local = ftps_base / f"htdocs_{ts}"
+									htdocs_local.mkdir(parents=True, exist_ok=True)
+
+									def download_ftp_dir(ftp_obj, remote_dir, local_dir):
+										# Recursively download a remote FTP directory into local_dir
+										try:
+											ftp_obj.cwd(remote_dir)
+										except Exception:
+											return
+										items = []
+										try:
+											items = ftp_obj.nlst()
+										except Exception:
+											return
+										for name in items:
+											if name in ('.', '..'):
+												continue
+											# attempt to cwd into the name to see if it's a directory
+											try:
+												ftp_obj.cwd(name)
+												# it is a directory
+												local_sub = local_dir / name
+												local_sub.mkdir(parents=True, exist_ok=True)
+												# recurse into directory
+												download_ftp_dir(ftp_obj, '.', local_sub)
+												# go back up
+												ftp_obj.cwd('..')
+											except Exception:
+												# treat as a file, retrieve it
+												local_file = local_dir / name
+												try:
+													with open(local_file, 'wb') as lf:
+														ftp_obj.retrbinary(f'RETR {name}', lf.write)
+												except Exception:
+													# skip unreadable files
+													continue
+
+									# start from the configured remote path
+									cwd_ok = True
+									try:
+										ftp.cwd(remote_base)
+									except Exception:
+										try:
+											# try removing leading slash
+											ftp.cwd(remote_base.lstrip('/'))
+										except Exception:
+											cwd_ok = False
+									if cwd_ok:
+										download_ftp_dir(ftp, '.', htdocs_local)
+									# create a zip of the downloaded htdocs folder
+									htdocs_zip = ftps_base / f"htdocs_{ts}.zip"
+									try:
+										with zipfile.ZipFile(htdocs_zip, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+											for root, _, files in os.walk(htdocs_local):
+												for fname in files:
+													fpath = Path(root) / fname
+													arcname = str(fpath.relative_to(ftps_base))
+													zf.write(fpath, arcname=arcname)
+										print_status(f"Created FTP htdocs zip {htdocs_zip}", level="ok")
+										# remove the local extracted folder
+										try:
+											shutil.rmtree(htdocs_local)
+											print_status(f"Removed temporary folder {htdocs_local}", level="debug")
+										except Exception:
+											pass
+									except Exception as e:
+										print_status(f"Failed to zip FTP htdocs: {e}", level="warn")
+								except Exception as e:
+									print_status(f"Failed to download remote htdocs: {e}", level="warn")
+
+							# change to /htdocs/ creating if necessary for upload
 							try:
 								ftp.cwd('/htdocs')
 							except Exception:
