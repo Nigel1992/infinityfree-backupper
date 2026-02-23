@@ -2,7 +2,7 @@ import json
 import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-import tarfile
+import zipfile
 import ftplib
 import getpass
 
@@ -390,19 +390,18 @@ def export_database(driver, sel_name: str):
 						except Exception:
 							print_status(f"Download finished at {downloaded}", level="ok")
 
-					# Create an archive (.tar.gz) containing the SQL and save into archives folder
-					archive_path = None
+					# Create a zip file containing the SQL and save into the sqls folder
+					zip_path = None
 					try:
-						archive_name = f"{sel_name}_{ts}_archive.tar.gz"
-						archive_path = arch_dir / archive_name
-						with tarfile.open(archive_path, "w:gz") as tf:
-							# add the sql file with no leading directories
-							tf.add(new_path, arcname=new_path.name)
-						print_status(f"Created archive {archive_path}", level="ok")
+						zip_name = f"{sel_name}_{ts}.zip"
+						zip_path = sql_dir / zip_name
+						with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+							zf.write(new_path, arcname=new_path.name)
+						print_status(f"Created zip {zip_path}", level="ok")
 					except Exception as e:
-						print_status(f"Failed to create archive: {e}", level="warn")
+						print_status(f"Failed to create zip: {e}", level="warn")
 
-					# Upload archive to FTP /htdocs/ if FTP config available or request it
+					# Upload zip to FTP /htdocs/ if FTP config available or request it
 					cfg = load_json(CONFIG_FILE) or {}
 					# Respect explicit opt-in: only upload if 'enable_ftp' is true in config
 					if not cfg.get('enable_ftp', False):
@@ -423,8 +422,8 @@ def export_database(driver, sel_name: str):
 								ftp_cfg = {'host': host, 'port': port, 'user': user, 'password': pwd}
 								cfg['ftp'] = ftp_cfg
 								save_json(CONFIG_FILE, cfg)
-					# attempt upload (only if ftp_cfg set, enable_ftp true, and archive exists)
-					if cfg.get('enable_ftp', False) and ftp_cfg and archive_path and archive_path.exists():
+					# attempt upload (only if ftp_cfg set, enable_ftp true, and zip exists)
+					if cfg.get('enable_ftp', False) and ftp_cfg and zip_path and zip_path.exists():
 						try:
 							ftp = ftplib.FTP()
 							# validate and coerce FTP host and port to proper types
@@ -449,16 +448,16 @@ def export_database(driver, sel_name: str):
 									ftp.cwd('/htdocs')
 								except Exception:
 									pass
-							# upload archive (from archives folder)
-							with open(archive_path, 'rb') as af:
-								ftp.storbinary(f'STOR {archive_path.name}', af)
+							# upload zip (from sqls folder)
+							with open(zip_path, 'rb') as af:
+								ftp.storbinary(f'STOR {zip_path.name}', af)
 							ftp.quit()
-							print_status(f"Uploaded archive to FTP /htdocs/: {archive_path.name}", level="ok")
+							print_status(f"Uploaded zip to FTP /htdocs/: {zip_path.name}", level="ok")
 						except Exception as e:
 							print_status(f"FTP upload failed: {e}", level="warn")
 					elif cfg.get('enable_ftp', False) and ftp_cfg:
-						# configured to upload but no valid archive to send
-						print_status("FTP upload requested but archive not available; skipping upload.", level="warn")
+						# configured to upload but no valid zip to send
+						print_status("FTP upload requested but zip not available; skipping upload.", level="warn")
 					# if we reach here and downloaded was falsy, report timeout
 				else:
 					print_status("No download detected within timeout", level="warn")

@@ -32,8 +32,8 @@ python infinityfree_backup.py
 - **Script:** `infinityfree_backup.py`
 - **Examples:** see [config.example.json](config.example.json) and [cookies.example.json](cookies.example.json) for suggested formats you can copy into `config.json` and `cookies.json` locally (these example files are safe to keep in the repo).
 - **Generated backups:** SQL dumps are stored under `backups/sqls/` and archives under `backups/archives/` by default.
- - **Generated backups:** SQL dumps are stored under `backups/sqls/` and archives under `backups/archives/` by default.
- - **Remote site mirror (optional):** when enabled the tool can download your remote `/htdocs/` via FTP into a timestamped `backups/htdocs_<timestamp>/` folder and create an archive in `backups/archives/`.
+- **Generated backups:** SQL dumps are stored under `backups/sqls/`. Each exported `.sql` is also compressed into a `.zip` file placed next to the SQL in the same folder (no separate `archives/` folder is used).
+- **Remote site mirror (optional):** when enabled the tool can download your remote `/htdocs/` via FTP into a timestamped `backups/htdocs_<timestamp>/` folder and create a zip file `backups/htdocs_<timestamp>.zip`.
 
 **Config & Cookies (examples)**
 - The repository includes example files you should copy and edit locally:
