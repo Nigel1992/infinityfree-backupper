@@ -1,7 +1,7 @@
 
 **InfinityFree Backupper**
 
-A friendly backupper tool for InfinityFree hosting (Free plan). It automates opening the InfinityFree dashboard in Chrome, helps you sign in, persist cookies, choose an account and MySQL database, export the database SQL, and save a timestamped backup archive.
+A friendly backupper tool for InfinityFree hosting (Free plan). It automates opening the InfinityFree dashboard in Chrome, helps you sign in, persist cookies, choose an account and MySQL database, export and **backup your SQL data**, and optionally mirror your `/htdocs/` folder over FTP — everything is timestamped and zipped for safekeeping.
 
 **Why this exists:** InfinityFree's control panel doesn't provide easy automated scheduled dumps for free accounts. This tool makes repeatable backups simple and local-first — you control where the backups are stored.
 
@@ -26,7 +26,7 @@ python infinityfree_backup.py
 - **Cookie handling:** Accepts pasted cookie JSON or a cookie file and saves normalized cookies locally so future runs can reuse them.
 - **Account & DB selection:** Lists available accounts and MySQL databases (using configured XPaths) and lets you pick one. Selections are persisted to `config.json` for convenience.
 - **Export & archive:** Exports the selected database to a SQL file named `<databasename>_<YYYYMMDD-HHMMSS>.sql`, then creates a compressed archive for safekeeping.
-- **Optional FTP upload:** Upload to your `htdocs/` on InfinityFree is implemented but disabled by default — enable in `config.json` only if you know what you are doing.
+
 
 **Files & Locations**
 - **Script:** `infinityfree_backup.py`
@@ -81,4 +81,3 @@ How to load cookies:
 
 ---
 
-If you'd like, I can also add a short `--upload` CLI flag to enable FTP per-run (so you don't need to edit `config.json`).
