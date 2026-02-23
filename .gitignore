@@ -1,8 +1,15 @@
-*.bak
-#cookies.json
-#config.json
+# Ignore sensitive config and runtime artifacts
+config.json
+cookies.json
+
+# Backups and downloads
 backups/
 downloads/
+
+# Virtualenv
 .venv/
+
+# Editor/OS files
 __pycache__/
 *.pyc
+*.bak
