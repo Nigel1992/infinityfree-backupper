@@ -1,3 +1,5 @@
+[![Discord](https://img.shields.io/badge/Discord-Join%20Us-5865F2?logo=discord&logoColor=white)](https://discord.gg/UbPRh74PzV)
+
 # 🚀 InfinityFree Backupper
 
 > A **local-first backup utility** for exporting MySQL databases from the InfinityFree control panel and mirroring your remote `/htdocs/` directory over FTP — fully automated, timestamped, and compressed.
