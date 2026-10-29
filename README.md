@@ -3,6 +3,8 @@
 
 # 🚀 InfinityFree Backupper
 
+[![Vibe Coded](https://img.shields.io/badge/Vibe_Coded-✨-8A2BE2?style=for-the-badge)](https://github.com)
+
 > A **local-first backup utility** for exporting MySQL databases from the InfinityFree control panel and mirroring your remote `/htdocs/` directory over FTP — fully automated, timestamped, and compressed.
 
 ---
